@@ -1,6 +1,6 @@
-FROM python:2.7.15
+FROM python:3.9
 
 WORKDIR app
-COPY . .
+COPY main.py .
 
 ENTRYPOINT [ "python", "./main.py" ]
