@@ -58,10 +58,10 @@ def parse_arguments():
 
 
 def prepare_url(args: argparse.Namespace) -> str:
-    url = "https://ressources.data.sncf.com/api/records/1.0/search/?dataset=tgvmax&sort=date&facet=date&facet=origine&facet=destination"
-    url += "&refine.origine=" + parse.quote(args.origin)
-    url += "&refine.destination=" + parse.quote(args.destination)
-    url += "&refine.date=" + parse.quote(str(args.date))
+    url = "https://ressources.data.sncf.com/api/v2/catalog/datasets/tgvmax/records?order_by=date&facet=date&facet=origine&facet=destination"
+    url += f"&refine=origine:{parse.quote(args.origin)}"
+    url += f"&refine=destination:{parse.quote(args.destination)}"
+    url += f"&refine=date:{parse.quote(str(args.date))}"
     return url
 
 
@@ -92,7 +92,7 @@ def send_email(message):
 
 
 def send_alert(data, args):
-    fields = data["fields"]
+    fields = data["record"]["fields"]
     message = (
         f"Train disponible {fields['date']} !\n"
         + f"Aller : {fields['origine']}\n"
@@ -109,13 +109,13 @@ def send_alert(data, args):
 
 def search_train(data: dict, args: argparse.Namespace) -> bool:
     alert = False
-    nb_train = len(data["records"])
-    for i in range(0, nb_train):
-        if data["records"][i]["fields"]["od_happy_card"] == "OUI":
-            hour = data["records"][i]["fields"]["heure_depart"]
+    for train_data in data["records"]:
+        fields = train_data["record"]["fields"]
+        if fields["od_happy_card"] == "OUI":
+            hour = fields["heure_depart"]
             hourIn = int(hour.split(":", 1)[0])
             if args.time_range[0] <= hourIn <= args.time_range[1]:
-                send_alert(data["records"][i], args)
+                send_alert(train_data, args)
                 alert = True
     if alert == True:
         return True
@@ -128,10 +128,6 @@ def main():
     while True:
         response = request.urlopen(url)
         data = json.loads(response.read())
-        print(
-            "Remaining requests before rate-limiting:",
-            response.headers.get("X-RateLimit-Remaining"),
-        )
         if search_train(data, args) == True:
             return 1
         else:
