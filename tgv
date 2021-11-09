@@ -1,3 +1,0 @@
-docker run -it \
-    -v $(pwd):/folder \
-    tgvmax "$@"
