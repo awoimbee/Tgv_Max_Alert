@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
 
-from typing import Tuple
+from typing import List, Tuple
 from urllib import request, parse
+from difflib import get_close_matches
+from functools import lru_cache
 import json
 import smtplib
 import argparse
 import datetime
 import time
+
+
+@lru_cache(maxsize=None)
+def get_stations() -> List[str]:
+    url = "https://ressources.data.sncf.com/api/v2/catalog/datasets/tgvmax/facets?facet=origine"
+    resp = request.urlopen(url)
+    data = json.loads(resp.read())
+    return [facet["name"] for facet in data["facets"][0]["facets"]]
 
 
 def parse_arguments():
@@ -30,6 +40,13 @@ def parse_arguments():
             f"Incorrect hour range (got '{time_range_str}')"
         )
 
+    def parse_train_station(in_station: str):
+        stations = get_stations()
+        stations_to_match = [s.upper()[:len(in_station)] for s in stations]
+        match = get_close_matches(in_station.upper(), stations_to_match, 1)[0]
+        return stations[stations_to_match.index(match)]
+
+
     parser = argparse.ArgumentParser(description="TGV_Max_Alert")
     parser.add_argument(
         "--date",
@@ -44,10 +61,10 @@ def parse_arguments():
         help="hour format: 11:18. Monitor between 11h00 to 18h00",
     )
     parser.add_argument(
-        "--origin", type=str, required=True, help="train origin station"
+        "--origin", type=parse_train_station, required=True, help="train origin station"
     )
     parser.add_argument(
-        "--destination", type=str, required=True, help="train destination station"
+        "--destination", type=parse_train_station, required=True, help="train destination station"
     )
     parser.add_argument(
         "--alert", type=str, required=True, choices=["SMS", "EMAIL", "NO"]
@@ -125,6 +142,7 @@ def search_train(data: dict, args: argparse.Namespace) -> bool:
 def main():
     args = parse_arguments()
     url = prepare_url(args)
+    print(f"Searching for a train from {args.origin} to {args.destination} the {args.date} between {args.time_range}")
     while True:
         response = request.urlopen(url)
         data = json.loads(response.read())
