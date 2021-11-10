@@ -1,11 +1,12 @@
 from datetime import datetime
 from argparse import ArgumentTypeError
-import functools
 from typing import List, Tuple
 from urllib import request
 from difflib import get_close_matches
 import json
 import datetime
+
+_EVERY_STATION = None
 
 
 def date(date: str) -> datetime.date:
@@ -24,23 +25,23 @@ def time_range(time_range_str: str) -> Tuple[int, int]:
     raise ArgumentTypeError(f"Incorrect hour range (got '{time_range_str}')")
 
 
-def _parse_train_station(stations: List[str], in_station: str):
-    stations_to_match = [s.upper()[: len(in_station)] for s in stations]
+def _get_every_station() -> List[str]:
+    global _EVERY_STATION
+    if _EVERY_STATION is None:
+        url = "https://ressources.data.sncf.com/api/v2/catalog/datasets/tgvmax/facets?facet=origine"
+        resp = request.urlopen(url)
+        data = json.loads(resp.read())
+        _EVERY_STATION = [facet["name"] for facet in data["facets"][0]["facets"]]
+    return _EVERY_STATION
+
+
+def train_station(station_name: str) -> str:
+    every_station = _get_every_station()
+    stations_to_match = [s.upper()[: len(station_name)] for s in every_station]
     try:
-        match = get_close_matches(in_station.upper(), stations_to_match, 1)[0]
+        match = get_close_matches(station_name.upper(), stations_to_match, 1)[0]
     except IndexError:
         raise ArgumentTypeError(
-            f"Station '{in_station}' not found, available stations: {stations}"
+            f"Station '{station_name}' not found, available stations: {every_station}"
         )
-    return stations[stations_to_match.index(match)]
-
-
-def _get_every_station():
-    # TODO: cache this between restarts
-    url = "https://ressources.data.sncf.com/api/v2/catalog/datasets/tgvmax/facets?facet=origine"
-    resp = request.urlopen(url)
-    data = json.loads(resp.read())
-    return [facet["name"] for facet in data["facets"][0]["facets"]]
-
-
-train_station = functools.partial(_parse_train_station, _get_every_station())
+    return every_station[stations_to_match.index(match)]
