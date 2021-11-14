@@ -1,5 +1,7 @@
 # TGV MAX ALERT
 
+**NOT READY FOR USE, THE TRAINS ARE ONLY UPDATED 1/2 TIMES A DAY** 
+
 ### Usage :
 ```
 $> git clone https://github.com/SegFault42/Tgv_Max_Alert
